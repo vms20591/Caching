@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Microsoft.Framework.Cache.Distributed;
 using Microsoft.Framework.OptionsModel;
 using StackExchange.Redis;
@@ -56,8 +57,22 @@ namespace Microsoft.Framework.Cache.Redis
 
             var context = new CacheContext(key) { State = state };
             create(context);
+            return SetInternal(context);
+        }
+
+        public async Task<Stream> SetAsync([NotNull] string key, object state, [NotNull] Func<ICacheContext, Task> create)
+        {
+            Connect();
+
+            var context = new CacheContext(key) { State = state };
+            await create(context);
+            return SetInternal(context);
+        }
+
+        private Stream SetInternal(CacheContext context)
+        {
             var value = context.GetBytes();
-            var result = _cache.ScriptEvaluate(SetScript, new RedisKey[] { _instance + key },
+            var result = _cache.ScriptEvaluate(SetScript, new RedisKey[] { _instance + context.Key },
                 new RedisValue[]
                 {
                     context.AbsoluteExpiration?.Ticks ?? NotPresent,

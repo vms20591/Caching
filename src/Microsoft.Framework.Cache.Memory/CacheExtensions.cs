@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Threading.Tasks;
 
 namespace Microsoft.Framework.Cache.Memory
 {
@@ -63,6 +64,14 @@ namespace Microsoft.Framework.Cache.Memory
             return (T)cache.Set(key, link, state, context =>
             {
                 return (object)create(context);
+            });
+        }
+
+        public static async Task<T> SetAsync<T>(this IMemoryCache cache, string key, IEntryLink link, object state, Func<ICacheSetContext, Task<T>> create)
+        {
+            return (T) await cache.SetAsync(key, link, state, async context =>
+            {
+                return (object) await create(context);
             });
         }
 

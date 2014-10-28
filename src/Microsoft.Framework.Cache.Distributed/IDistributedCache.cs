@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Microsoft.Framework.Runtime;
 
 namespace Microsoft.Framework.Cache.Distributed
@@ -13,6 +14,8 @@ namespace Microsoft.Framework.Cache.Distributed
         void Connect();
 
         Stream Set(string key, object state, Action<ICacheContext> create);
+
+        Task<Stream> SetAsync(string key, object state, Func<ICacheContext, Task> create);
 
         bool TryGetValue(string key, out Stream value);
 

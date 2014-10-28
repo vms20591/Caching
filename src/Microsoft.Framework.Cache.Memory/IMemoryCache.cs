@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Threading.Tasks;
 using Microsoft.Framework.Runtime;
 
 namespace Microsoft.Framework.Cache.Memory
@@ -19,6 +20,8 @@ namespace Microsoft.Framework.Cache.Memory
         /// <param name="create">A factory that will create and configure the entry.</param>
         /// <returns>The object that was created.</returns>
         object Set(string key, IEntryLink link, object state, Func<ICacheSetContext, object> create);
+
+        Task<object> SetAsync(string key, IEntryLink link, object state, Func<ICacheSetContext, Task<object>> create);
 
         /// <summary>
         /// Gets the item associated with this key if present.

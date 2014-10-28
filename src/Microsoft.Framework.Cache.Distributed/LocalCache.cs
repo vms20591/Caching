@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Microsoft.Framework.Cache.Memory;
 
 namespace Microsoft.Framework.Cache.Distributed
@@ -26,6 +27,17 @@ namespace Microsoft.Framework.Cache.Distributed
             {
                 var subContext = new LocalContextWrapper(context);
                 create(subContext);
+                return subContext.GetBytes();
+            });
+            return new MemoryStream(data, writable: false);
+        }
+
+        public async Task<Stream> SetAsync([NotNull] string key, object state, [NotNull] Func<ICacheContext, Task> create)
+        {
+            var data = await _memCache.SetAsync<byte[]>(key, link: null, state: state, create: async context =>
+            {
+                var subContext = new LocalContextWrapper(context);
+                await create(subContext);
                 return subContext.GetBytes();
             });
             return new MemoryStream(data, writable: false);

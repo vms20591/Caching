@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Framework.Cache.Memory.Infrastructure;
 using Microsoft.Framework.OptionsModel;
 
@@ -61,10 +62,28 @@ namespace Microsoft.Framework.Cache.Memory
         public object Set([NotNull] string key, IEntryLink link, object state, [NotNull] Func<ICacheSetContext, object> create)
         {
             CheckDisposed();
-            CacheEntry priorEntry = null;
-            var now = _clock.UtcNow;
-            var context = new CacheSetContext(key) { State = state, CreationTime = now };
+            var context = new CacheSetContext(key) { State = state, CreationTime = _clock.UtcNow };
             object value = create(context);
+
+            SetInternal(context, link, value);
+
+            return value;
+        }
+
+        public async Task<object> SetAsync([NotNull] string key, IEntryLink link, object state, [NotNull] Func<ICacheSetContext, Task<object>> create)
+        {
+            CheckDisposed();
+            var context = new CacheSetContext(key) { State = state, CreationTime = _clock.UtcNow };
+            object value = await create(context);
+
+            SetInternal(context, link, value);
+
+            return value;
+        }
+
+        private void SetInternal(CacheSetContext context, IEntryLink link, object value)
+        {
+            CacheEntry priorEntry = null;
             var entry = new CacheEntry(context, value, _entryExpirationNotification);
             bool added = false;
 
@@ -85,15 +104,15 @@ namespace Microsoft.Framework.Cache.Memory
             _entryLock.EnterWriteLock();
             try
             {
-                if (_entries.TryGetValue(key, out priorEntry))
+                if (_entries.TryGetValue(context.Key, out priorEntry))
                 {
-                    _entries.Remove(key);
+                    _entries.Remove(context.Key);
                     priorEntry.SetExpired(EvictionReason.Replaced);
                 }
 
-                if (!entry.CheckExpired(now))
+                if (!entry.CheckExpired(context.CreationTime))
                 {
-                    _entries[key] = entry;
+                    _entries[context.Key] = entry;
                     entry.AttachTriggers();
                     added = true;
                 }
@@ -112,8 +131,6 @@ namespace Microsoft.Framework.Cache.Memory
             }
 
             StartScanForExpiredItems();
-
-            return value;
         }
 
         public bool TryGetValue([NotNull] string key, IEntryLink link, out object value)
