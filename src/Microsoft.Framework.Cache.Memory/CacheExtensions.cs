@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Threading.Tasks;
 
 namespace Microsoft.Framework.Cache.Memory
 {
@@ -30,6 +31,54 @@ namespace Microsoft.Framework.Cache.Memory
         public static object Set(this IMemoryCache cache, string key, object state, Func<ICacheSetContext, object> create)
         {
             return cache.Set(key, EntryLinkHelpers.ContextLink, state, create);
+        }
+
+        public static async Task<object> SetAsync(this IMemoryCache cache, string key, IEntryLink link, object state, Func<ICacheSetContext, Task<object>> create)
+        {
+            var asyncContext = new CacheSetContext(key)
+            {
+                State = state,
+                CreationTime = DateTimeOffset.UtcNow
+            };
+            var data = await create(asyncContext);
+            asyncContext.State = data;
+
+            return cache.Set(key, link, asyncContext, context =>
+            {
+                var asyncContextState = (CacheSetContext)context.State;
+
+                // Copy the configuration
+                context.SetPriority(asyncContextState.Priority);
+                if (asyncContextState.Triggers != null)
+                {
+                    foreach (var trigger in asyncContextState.Triggers)
+                    {
+                        context.AddExpirationTrigger(trigger);
+                    }
+                }
+                if (asyncContextState.AbsoluteExpiration.HasValue)
+                {
+                    // This may no longer pass validation if it was very soon and the object creation took a while.
+                    context.SetAbsoluteExpiration(asyncContextState.AbsoluteExpiration.Value);
+                }
+                if (asyncContextState.SlidingExpiration.HasValue)
+                {
+                    context.SetSlidingExpiration(asyncContextState.SlidingExpiration.Value);
+                }
+                if (asyncContextState.PostEvictionCallbacks != null)
+                {
+                    foreach (var callbackPair in asyncContextState.PostEvictionCallbacks)
+                    {
+                        context.RegisterPostEvictionCallback(callbackPair.Item1, callbackPair.Item2);
+                    }
+                }
+                return asyncContext.State;
+            });
+        }
+
+        public static async Task<T> SetAsync<T>(this IMemoryCache cache, string key, IEntryLink link, object state, Func<ICacheSetContext, Task<T>> create)
+        {
+            return (T)await cache.SetAsync(key, link, state, async context => (object)await create(context));
         }
 
         public static T Set<T>(this IMemoryCache cache, string key, Func<ICacheSetContext, T> create)

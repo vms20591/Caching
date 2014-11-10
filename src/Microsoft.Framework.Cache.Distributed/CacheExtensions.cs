@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace Microsoft.Framework.Cache.Distributed
 {
@@ -47,6 +48,29 @@ namespace Microsoft.Framework.Cache.Distributed
         public static Stream Set(this IDistributedCache cache, string key, Action<ICacheContext> create)
         {
             return cache.Set(key, state: null, create: create);
+        }
+
+        public static async Task<Stream> SetAsync(this IDistributedCache cache, string key, object state, Func<ICacheContext, Task> create)
+        {
+            var asyncContext = new AsyncCacheContext(key) { State = state };
+            await create(asyncContext);
+
+            return cache.Set(key, state: asyncContext, create: context =>
+            {
+                var asyncContextState = (AsyncCacheContext)context.State;
+
+                // Copy the configuration
+                if (asyncContextState.AbsoluteExpiration.HasValue)
+                {
+                    context.SetAbsoluteExpiration(asyncContextState.AbsoluteExpiration.Value);
+                }
+                if (asyncContextState.SlidingExpiration.HasValue)
+                {
+                    context.SetSlidingExpiration(asyncContextState.SlidingExpiration.Value);
+                }
+                asyncContextState.Data.Seek(0, SeekOrigin.Begin);
+                asyncContextState.Data.CopyTo(context.Data);
+            });
         }
 
         public static Stream Get(this IDistributedCache cache, string key)
