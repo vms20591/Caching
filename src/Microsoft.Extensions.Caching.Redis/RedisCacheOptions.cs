@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using Microsoft.Extensions.Options;
+using StackExchange.Redis;
 
 namespace Microsoft.Extensions.Caching.Redis
 {
@@ -19,6 +20,8 @@ namespace Microsoft.Extensions.Caching.Redis
         /// The database to be used 
         /// </summary>
         public int? Database { get; set; }
+
+        public IConnectionMultiplexer ConnectionMultiplexer { get; set; }
 
         /// <summary>
         /// The Redis instance name.

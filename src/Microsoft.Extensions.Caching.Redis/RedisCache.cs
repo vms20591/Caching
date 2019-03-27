@@ -48,6 +48,8 @@ namespace Microsoft.Extensions.Caching.Redis
 
             // This allows partitioning a single backend cache for use with multiple apps/services.
             _instance = _options.InstanceName ?? string.Empty;
+
+            _connection = _options.ConnectionMultiplexer;
         }
 
         public RedisCache(IOptions<RedisCacheOptions> optionsAccessor, IConnectionMultiplexer connection):this(optionsAccessor)
@@ -174,7 +176,7 @@ namespace Microsoft.Extensions.Caching.Redis
 
         private void Connect()
         {
-            if (_connection != null && _cache == null)
+            if (_connection != null && _cache != null)
             {
                 return;
             }
@@ -202,7 +204,7 @@ namespace Microsoft.Extensions.Caching.Redis
         {
             token.ThrowIfCancellationRequested();
 
-            if (_connection != null && _cache == null)
+            if (_connection != null && _cache != null)
             {
                 return;
             }
